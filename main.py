@@ -71,6 +71,13 @@ def display(detect_queue):
         detector_displayer_shm = shared_memory.SharedMemory(name=shm_name)
         frame = np.ndarray(shape, dtype=np.uint8, buffer=detector_displayer_shm.buf)
         
+        # Blur each detected region
+        for (x, y, w, h) in detections:
+            roi = frame[y:y+h, x:x+w]
+            # Apply Gaussian blur to the region of interest
+            blurred_roi = cv2.GaussianBlur(roi, (35, 35), 0)
+            frame[y:y+h, x:x+w] = blurred_roi
+
         # Draw detections
         for (x, y, w, h) in detections:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
