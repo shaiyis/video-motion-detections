@@ -10,6 +10,8 @@ def stream(video_path, stream_queue):
 
     while cap.isOpened():
         ret, frame = cap.read()
+        if not ret:
+            break
 
         streamer_detector_shm = shared_memory.SharedMemory(create=True, size=frame.nbytes)
         shm_frame = np.ndarray(frame.shape, dtype=frame.dtype, buffer=streamer_detector_shm.buf)
@@ -18,6 +20,10 @@ def stream(video_path, stream_queue):
         stream_queue.put((streamer_detector_shm.name, frame.shape))
 
         time.sleep(1 / fps)
+    
+    # Signal end of stream
+    stream_queue.put(None)
+    cap.release()
 
 
 def detect(stream_queue, detect_queue):
@@ -26,6 +32,10 @@ def detect(stream_queue, detect_queue):
     while True:
         item = stream_queue.get()
         
+        if item is None:
+            detect_queue.put(None)
+            break
+
         shm_name, shape = item
         streamer_detector_shm = shared_memory.SharedMemory(name=shm_name)
         frame = np.ndarray(shape, dtype=np.uint8, buffer=streamer_detector_shm.buf)
@@ -65,6 +75,8 @@ def detect(stream_queue, detect_queue):
 def display(detect_queue):
     while True:
         item = detect_queue.get()
+        if item is None:
+            break
 
         shm_name, detections, shape = item
 
@@ -97,7 +109,7 @@ def display(detect_queue):
 
 
 def main():
-    video_path = 'Ribbon.mp4'  # Put your video file in the same directory
+    video_path = 'video.mp4'  # Put your video file in the same directory
 
     # Queues
     stream_queue = Queue()
